@@ -27,6 +27,8 @@ flags.DEFINE_string("integration_method", "dopri5", help="integration method to 
 flags.DEFINE_integer("step", 400000, help="training steps")
 flags.DEFINE_integer("num_gen", 50000, help="number of samples to generate")
 flags.DEFINE_float("tol", 1e-5, help="Integrator tolerance (absolute and relative)")
+flags.DEFINE_integer("batch_size_fid", 1024, help="Batch size to compute FID")
+
 FLAGS(sys.argv)
 
 
@@ -49,7 +51,7 @@ new_net = UNetModelWrapper(
 # Load the model
 PATH = f"{FLAGS.input_dir}/{FLAGS.model}/{FLAGS.model}_cifar10_weights_step_{FLAGS.step}.pt"
 print("path: ", PATH)
-checkpoint = torch.load(PATH)
+checkpoint = torch.load(PATH, map_location=device)
 state_dict = checkpoint["ema_model"]
 try:
     new_net.load_state_dict(state_dict)
@@ -70,7 +72,7 @@ if FLAGS.integration_method == "euler":
 
 def gen_1_img(unused_latent):
     with torch.no_grad():
-        x = torch.randn(500, 3, 32, 32, device=device)
+        x = torch.randn(FLAGS.batch_size_fid, 3, 32, 32, device=device)
         if FLAGS.integration_method == "euler":
             print("Use method: ", FLAGS.integration_method)
             t_span = torch.linspace(0, 1, FLAGS.integration_steps + 1, device=device)
@@ -90,7 +92,7 @@ print("Start computing FID")
 score = fid.compute_fid(
     gen=gen_1_img,
     dataset_name="cifar10",
-    batch_size=500,
+    batch_size=FLAGS.batch_size_fid,
     dataset_res=32,
     num_gen=FLAGS.num_gen,
     dataset_split="train",

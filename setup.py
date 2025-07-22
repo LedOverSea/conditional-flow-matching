@@ -6,19 +6,15 @@ from setuptools import find_packages, setup
 
 install_requires = [
     "torch>=1.11.0",
-    "torchvision>=0.11.0",
-    "lightning-bolts",
     "matplotlib",
-    "numpy",
+    "numpy",  # Due to pandas incompatibility
     "scipy",
     "scikit-learn",
-    "scprep",
-    "scanpy",
-    "torchdyn",
+    "torchdyn>=1.0.6",
     "pot",
     "torchdiffeq",
     "absl-py",
-    "clean-fid",
+    "pandas>=2.2.2",
 ]
 
 version_py = os.path.join(os.path.dirname(__file__), "torchcfm", "version.py")

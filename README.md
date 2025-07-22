@@ -22,7 +22,6 @@
 [![Downloads](https://static.pepy.tech/badge/torchcfm/month)](https://pepy.tech/project/torchcfm)
 </div>
 
-
 ## Description
 
 Conditional Flow Matching (CFM) is a fast way to train continuous normalizing flow (CNF) models. CFM is a simulation-free training objective for continuous normalizing flows that allows conditional generative modeling and speeds up training and inference. CFM's performance closes the gap between CNFs and diffusion models. To spread its use within the machine learning community, we have built a library focused on Flow Matching methods: TorchCFM. TorchCFM is a library showing how Flow Matching methods can be trained and used to deal with image generation, single-cell dynamics, tabular data and soon SO(3) data.
@@ -63,11 +62,14 @@ A. Tong, N. Malkin, G. Huguet, Y. Zhang, J. Rector-Brooks, K. Fatras, G. Wolf, Y
 </summary>
 
 ```bibtex
-@article{tong2023improving,
-  title={Improving and Generalizing Flow-Based Generative Models with Minibatch Optimal Transport},
-  author={Tong, Alexander and Malkin, Nikolay and Huguet, Guillaume and Zhang, Yanlei and {Rector-Brooks}, Jarrid and Fatras, Kilian and Wolf, Guy and Bengio, Yoshua},
-  year={2023},
-  journal={arXiv preprint 2302.00482}
+@article{tong2024improving,
+title={Improving and generalizing flow-based generative models with minibatch optimal transport},
+author={Alexander Tong and Kilian FATRAS and Nikolay Malkin and Guillaume Huguet and Yanlei Zhang and Jarrid Rector-Brooks and Guy Wolf and Yoshua Bengio},
+journal={Transactions on Machine Learning Research},
+issn={2835-8856},
+year={2024},
+url={https://openreview.net/forum?id=CD9Snc73AW},
+note={Expert Certification}
 }
 ```
 
@@ -197,17 +199,6 @@ Before making an issue, please verify that:
 - Your python dependencies are updated to recent versions.
 
 Suggestions for improvements are always welcome!
-
-## Sponsors
-
-TorchCFM development and maintenance are financially supported by:
-
-<p align="center">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/DF_logo_dark.png" width="300"/>
-  <img alt="DF logo changing depending on mode.'" src="assets/DF_logo.png" width="300"/>
-</picture>
-</p>
 
 ## License
 
