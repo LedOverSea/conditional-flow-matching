@@ -70,7 +70,7 @@ def store_trajectories(obs: Union[torch.Tensor, list], model, title="trajs", sta
             labels.append(t * np.ones(xi.shape[0]))
         data = np.concatenate(data, axis=0)
         labels = np.concatenate(labels, axis=0)
-        scprep.plot.scatter2d(data, c=labels)
+        # scprep.plot.scatter2d(data, c=labels)
         start = obs[0][:n]
         ts = len(obs)
     else:

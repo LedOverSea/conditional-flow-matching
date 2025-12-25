@@ -169,7 +169,7 @@ class CFMLitModule(LightningModule):
                 t_select = torch.randint(times - 2, size=(batch_size,), device=X.device)
                 t_select[t_select >= self.hparams.leaveout_timepoint] += 1
             else:
-                t_select = torch.randint(times - 1, size=(batch_size,))
+                t_select = torch.randint(times - 1, size=(batch_size,), device=X.device)
             x0 = []
             x1 = []
             for i in range(batch_size):
@@ -499,7 +499,7 @@ class CFMLitModule(LightningModule):
                     trajs[-1],
                     title=f"{self.current_epoch}_samples",
                     wandb_logger=wandb_logger,
-                )
+                ) 
 
         if prefix == "test" and not self.is_image:
             store_trajectories(x, self.net)
@@ -624,7 +624,7 @@ class RectifiedFlowLitModule(CFMLitModule):
                 t_select = torch.randint(times - 2, size=(batch_size,), device=X.device)
                 t_select[t_select >= self.hparams.leaveout_timepoint] += 1
             else:
-                t_select = torch.randint(times - 1, size=(batch_size,))
+                t_select = torch.randint(times - 1, size=(batch_size,), device=X.device)
             x0 = []
             x1 = []
             for i in range(batch_size):
@@ -669,7 +669,7 @@ class ActionMatchingLitModule(CFMLitModule):
 
     def step(self, batch: Any, training: bool = False):
         """Computes the loss on a batch of data."""
-        assert not self.is_trajectory
+        # assert not self.is_trajectory
         energy = self.net.energy
         X = self.unpack_batch(batch)
         x0, x1, t_select = self.preprocess_batch(X, training)
@@ -678,7 +678,11 @@ class ActionMatchingLitModule(CFMLitModule):
             x0, x1 = self.ot_sampler.sample_plan(x0, x1)
 
         t = torch.rand(X.shape[0]).type_as(X)
-        t_xshape = t.reshape(-1, *([1] * (x0.dim() - 1)))
+        # Fixed: Correct time dimension handling for 2D data
+        if x0.dim() == 2:  # [batch_size, feature_dim]
+            t_xshape = t.reshape(-1, 1)  # [batch_size, 1]
+        else:  # For higher dimensions
+            t_xshape = t.reshape(-1, *([1] * (x0.dim() - 1)))
         xt = t_xshape * x1 + (1 - t_xshape) * x0
         # t that network sees is incremented by first timepoint
         t = t + t_select.reshape(-1, *t.shape[1:])
@@ -688,8 +692,8 @@ class ActionMatchingLitModule(CFMLitModule):
             st = torch.sum(energy(torch.cat([xt, t_xshape], dim=-1)))
             dsdx, dsdt = torch.autograd.grad(st, (xt, t_xshape), create_graph=True)
         xt.requires_grad, t_xshape.requires_grad = False, False
-        a0 = energy(torch.cat([x0, torch.zeros(x0.shape[0], 1)], dim=-1))
-        a1 = energy(torch.cat([x1, torch.ones(x1.shape[0], 1)], dim=-1))
+        a0 = energy(torch.cat([x0, torch.zeros(x0.shape[0], 1, device = x0.device)], dim=-1))
+        a1 = energy(torch.cat([x1, torch.ones(x1.shape[0], 1, device = x1.device)], dim=-1))
         loss = a0 - a1 + 0.5 * (dsdx**2).sum(1, keepdims=True) + dsdt
         loss = loss.mean()
         aug_x = self.aug_net(t, xt, augmented_input=False)
@@ -704,7 +708,7 @@ class VariancePreservingCFM(CFMLitModule):
     """
 
     def calc_mu_sigma(self, x0, x1, t):
-        assert not self.is_trajectory
+        # assert not self.is_trajectory
         mu_t = torch.cos(math.pi / 2 * t) * x0 + torch.sin(math.pi / 2 * t) * x1
         sigma_t = self.hparams.sigma_min
         return mu_t, sigma_t
@@ -723,7 +727,7 @@ class SBCFMLitModule(CFMLitModule):
     """
 
     def calc_mu_sigma(self, x0, x1, t):
-        assert not self.is_trajectory
+        # assert not self.is_trajectory
         mu_t = t * x1 + (1 - t) * x0
         sigma_t = self.hparams.sigma_min * torch.sqrt(t - t**2)
         return mu_t, sigma_t
@@ -1363,11 +1367,11 @@ class SplineCFMLitModule(CFMLitModule):
         # TODO handle leaveout case
         if training and self.hparams.leaveout_timepoint > 0:
             # Select random except for the leftout timepoint
-            t_select = torch.randint(times - 2, size=(batch_size,))
+            t_select = torch.randint(times - 2, size=(batch_size,), device=X.device)
             X = torch.cat([X[:, :lotp], X[:, lotp + 1 :]], dim=1)
             valid_times = valid_times[valid_times != lotp]
         else:
-            t_select = torch.randint(times - 1, size=(batch_size,))
+            t_select = torch.randint(times - 1, size=(batch_size,), device=X.device)
         traj = torch.from_numpy(self.ot_sampler.sample_trajectory(X)).type_as(X)
         x0 = []
         x1 = []

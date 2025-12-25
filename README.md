@@ -1,3 +1,8 @@
+# 项目介绍
+`notes/`： 除了`notes/3.single-cell_preprocess.ipynb`在本地运行，其他笔记本都在kaggle运行 
+
+
+
 <div align="center">
 
 # TorchCFM: a Conditional Flow Matching library

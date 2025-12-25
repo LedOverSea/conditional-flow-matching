@@ -76,6 +76,9 @@ class VelocityNet(SimpleDenseNet):
 
     def forward(self, t, x, *args, **kwargs):
         """Ignore t run model."""
+        # 2025/12/18 新增: 把t转移到x的设备上
+        t = t.to(x.device)
+
         if t.dim() < 1 or t.shape[0] != x.shape[0]:
             t = t.repeat(x.shape[0])[:, None]
         if t.dim() < 2:
@@ -84,6 +87,78 @@ class VelocityNet(SimpleDenseNet):
         return self.model(x)
 
 
+class EnergyVelocityNet(SimpleDenseNet):
+    """VelocityNet with energy method for ActionMatchingLitModule compatibility.
+    
+    This network provides both velocity field computation (via forward) 
+    and energy field computation (via energy) required by ActionMatchingLitModule.
+    """
+    
+    def __init__(self, dim: int, *args, **kwargs):
+        # Initialize with input_size=dim+1 for (t, x) concatenation
+        # target_size should be hidden_dim for intermediate representation
+        super().__init__(input_size=dim + 1, target_size=128, *args, **kwargs)  # Use 128 as hidden_dim
+        self.dim = dim
+        self.hidden_dim = 128
+        
+        # Create separate heads for velocity and energy
+        self.velocity_head = nn.Linear(self.hidden_dim, dim)
+        self.energy_head = nn.Linear(self.hidden_dim, 1)
+        
+    def forward(self, t, x, *args, **kwargs):
+        """Forward pass returns velocity field.
+        
+        Args:
+            t: Time parameter
+            x: Input data
+            
+        Returns:
+            Velocity field of shape [batch_size, dim]
+        """
+        # Ensure t and x are on the same device
+        t = t.to(x.device)
+        
+        if t.dim() < 1 or t.shape[0] != x.shape[0]:
+            t = t.repeat(x.shape[0])[:, None]
+        if t.dim() < 2:
+            t = t[:, None]
+
+        # Concatenate t and x
+        x_input = torch.cat([t, x], dim=-1)
+        
+        # Get intermediate representation
+        hidden = self.model(x_input)
+        
+        # Compute velocity from the velocity head
+        velocity = self.velocity_head(hidden)
+        
+        return velocity
+    
+    def energy(self, x_input):
+        """Energy function for ActionMatchingLitModule.
+        
+        Args:
+            x_input: Input data concatenated with time (should be [batch_size, dim+1])
+            
+        Returns:
+            Energy field (scalar) of shape [batch_size]
+        """
+        # Ensure input has correct shape [batch_size, dim+1]
+        if x_input.shape[-1] != self.dim + 1:
+            raise ValueError(f"Expected input shape [-1, {self.dim + 1}], got {x_input.shape}")
+        
+        # Get intermediate representation
+        hidden = self.model(x_input)
+        
+        # Compute energy from the energy head
+        energy = self.energy_head(hidden)
+        
+        # Return scalar energy values
+        return energy.squeeze(-1)
+
+
 if __name__ == "__main__":
     _ = SimpleDenseNet()
     _ = TimeInvariantVelocityNet()
+
+
