@@ -1,21 +1,18 @@
-_target_: src.models.cfm_module.CFMLitModule
+_target_: src.models.cfm_module.RectifiedFlowLitModule
 _partial_: true
 
 optimizer:
-  _target_: torch.optim.Adam
+  _target_: torch.optim.AdamW
   _partial_: true
-  lr: 0.0005
+  lr: 0.001
+  weight_decay: 1e-5
 
 net:
-  _target_: src.models.components.unet.UNetModelWrapper
+  _target_: src.models.components.simple_mlp.VelocityNet
   _partial_: true
-  num_res_blocks: 2
-  num_channels: 256
-  channel_mult: [1, 2, 2, 2]
-  num_heads: 4
-  num_head_channels: 64
-  attention_resolutions: "16"
-  dropout: 0
+  hidden_dims: [64, 64, 64]
+  batch_norm: False
+  activation: "selu"
 
 augmentations:
   _target_: src.models.components.augmentation.AugmentationModule
@@ -34,8 +31,6 @@ partial_solver:
   atol: 1e-5
   rtol: 1e-5
 
-test_nfe: 100
-
 ot_sampler: null
 
 sigma_min: 0.1
@@ -43,4 +38,6 @@ sigma_min: 0.1
 # Set to integer if want to train with left out timepoint
 leaveout_timepoint: -1
 
-plot: True
+plot: False
+
+rectify_epochs: [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000]

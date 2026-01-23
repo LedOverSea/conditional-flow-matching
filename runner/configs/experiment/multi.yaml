@@ -1,0 +1,8 @@
+# @package _global_
+
+defaults:
+  - override /model: cfm.yaml
+  - override /datamodule: multi.yaml
+  - override /trainer: gpu_exp.yaml
+name: "multi"
+seed: 42

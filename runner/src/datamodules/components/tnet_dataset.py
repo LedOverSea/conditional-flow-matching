@@ -278,7 +278,11 @@ class CustomAnnData(CustomData):
         self.load()
 
     def load(self):
-        self.labels = np.array(self.adata.obs["sample_labels"])
+        # 如果是eb数据, 则标签为sample_labels, 其他则为day
+        if "sample_labels" in self.adata.obs.keys():
+            self.labels = np.array(self.adata.obs["sample_labels"])
+        else:
+            self.labels = np.array(self.adata.obs["day"])
         self.data, self.velocity = _get_data_points(self.adata, self.args.embedding_name)
 
         if "grn" in self.adata.uns:

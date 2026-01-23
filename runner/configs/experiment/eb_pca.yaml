@@ -1,0 +1,8 @@
+# @package _global_
+
+defaults:
+  - override /model: cfm.yaml
+  - override /datamodule: eb_pca.yaml
+  - override /trainer: gpu_exp.yaml
+name: "eb_pca"
+seed: 42

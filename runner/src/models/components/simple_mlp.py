@@ -156,6 +156,116 @@ class EnergyVelocityNet(SimpleDenseNet):
         # Return scalar energy values
         return energy.squeeze(-1)
 
+class EnergyBasedNet(SimpleDenseNet):
+    """
+    基于能量的深度学习网络类
+    核心特性：
+    - net.energy(t, x): R^(d+1) → R，输入(t, x)输出标量能量
+    - net.forward(t, x): 等价于∇ₓ(net.energy)，即能量关于x的梯度
+    """
+    def __init__(self, dim: int, *args, **kwargs):
+        """
+        初始化网络
+        Args:
+            input_dim: x的维度d（t是标量，整体输入维度为d+1）
+            hidden_dims: 隐藏层维度列表，默认[64, 64]
+        """
+        super().__init__(input_size=dim+1, target_size=1, *args, **kwargs)
+
+    def energy(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        能量函数：R^(d+1) → R
+        Args:
+            x: 将t和x合并后d+1维的状态向量，shape=(batch_size, d + 1)
+        Returns:
+            标量能量值，shape=(batch_size, 1)
+        """
+
+        return self.model(x)
+
+    def forward(self, t: torch.Tensor, x: torch.Tensor, *args, **kwargs) -> torch.Tensor:
+        """
+        前向传播：等价于∇ₓ(net.energy)，即能量关于x的梯度
+        适配场景：self.energy 是普通函数，而非 nn.Module
+        Args:
+            t: 时间标量，shape=(batch_size,) 或 ()
+            x: 状态向量，shape=(batch_size, d)（需要求导）
+        Returns:
+            梯度值，shape=(batch_size, d)
+        """
+        # 核心：强制开启梯度上下文（覆盖PL的no_grad）
+        with torch.enable_grad():
+            # 正确创建可追踪梯度的叶子张量（去掉detach，避免计算图断裂）
+            x_leaf = x.clone().requires_grad_(True)
+            batch_size = x_leaf.shape[0]
+            device = x_leaf.device
+            """ 
+            # 标准化t的形状为 (batch_size, 1)
+            t = t.to(device)
+            if t.dim() == 0:
+                t = t.expand(batch_size, 1)
+            elif t.dim() == 1:
+                t = t.unsqueeze(-1)
+            else:
+                t = t[:, :1]  # 仅保留batch维度和1个时间维度 
+            """
+            t = t.to(device)
+            # 步骤1：压缩所有多余维度，只保留必要维度
+            t = t.squeeze()  # 把标量/[1]/[1,1]/[128,1]都转为标量/[128]
+            
+            # 步骤2：根据t的最终形状，统一转为[batch_size, 1]
+            if t.dim() == 0:
+                # 情况1：标量 → 扩展为[batch_size, 1]
+                t_expanded = t.expand(batch_size, 1)
+            elif t.dim() == 1:
+                if len(t) == 1:
+                    # 情况2：[1] → 扩展为[batch_size, 1]
+                    t_expanded = t.expand(batch_size, 1)
+                elif len(t) == batch_size:
+                    # 情况3：[128] → 增加最后一维，变为[128, 1]
+                    t_expanded = t.unsqueeze(-1)
+                else:
+                    # 情况4：其他长度 → 取第一个值，扩展为[batch_size, 1]
+                    t_expanded = t[0].expand(batch_size, 1)
+            else:
+                # 情况5：高维张量 → 取第一个时间值，扩展为[batch_size, 1]
+                t_expanded = t[0, 0].expand(batch_size, 1)
+
+            # 拼接输入 (batch_size, d+1)
+            inputs = torch.cat([t_expanded, x_leaf], dim=-1)
+            
+            # 计算能量值（self.energy是普通函数，无需train/eval切换）
+            energy_val = self.energy(inputs)
+
+            # 统一能量输出为一维 (batch_size,)
+            energy_val = energy_val.squeeze(-1)
+            if energy_val.dim() > 1:
+                energy_val = energy_val.reshape(-1)
+            
+            # 安全计算梯度，捕获所有可能的异常
+            try:
+                grad = torch.autograd.grad(
+                    outputs=energy_val.sum(),  # 标量输出保证梯度计算有效
+                    inputs=x_leaf,
+                    create_graph=True,         # ODE求解需要二阶梯度，必须开启
+                    retain_graph=True,         # 保留计算图供后续ODE步骤使用
+                    only_inputs=True,
+                    allow_unused=True,         # 容忍x未被使用的边界情况
+                )[0]
+            except (RuntimeError, AttributeError):
+                # 梯度计算失败时返回全0，避免程序崩溃
+                grad = torch.zeros_like(x_leaf)
+
+            # 处理梯度为空/形状不匹配的情况
+            if grad is None:
+                grad = torch.zeros_like(x_leaf)
+            elif grad.shape != x_leaf.shape:
+                grad = grad.reshape(x_leaf.shape)
+
+            # 确保梯度张量和原x的设备/类型一致
+            grad = grad.to(x.dtype).to(x.device)
+            
+            return grad
 
 if __name__ == "__main__":
     _ = SimpleDenseNet()

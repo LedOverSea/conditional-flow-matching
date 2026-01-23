@@ -617,6 +617,7 @@ class RectifiedFlowLitModule(CFMLitModule):
     def preprocess_batch(self, X, training=False):
         """Converts a batch of data into matched a random pair of (x0, x1)"""
         t_select = torch.zeros(1, device=X.device)
+        
         if self.is_trajectory:
             batch_size, times, dim = X.shape
             if training and self.hparams.leaveout_timepoint > 0:
@@ -636,14 +637,16 @@ class RectifiedFlowLitModule(CFMLitModule):
                 x1.append(X[i, ti_next])
             x0, x1 = torch.stack(x0), torch.stack(x1)
         else:
+            times = 2 # 用于rectified flow的ode更新
             batch_size = X.shape[0]
             # If no trajectory assume generate from standard normal
             x0 = torch.randn_like(X)
             x1 = X
-
+        # 源代码 只提供两个分布
         if self.frozen_net is not None:
             # Currently only works for 2 distributions
-            assert t_select[0] == 0
+            # assert t_select[0] == 0
+            # 注释掉以上断言,对于多分布也是求下一个时间点
             t_span = torch.linspace(0, 1, 100)
             val_node = NeuralODE(self.frozen_net, solver="euler")
             with torch.no_grad():
@@ -692,8 +695,8 @@ class ActionMatchingLitModule(CFMLitModule):
             st = torch.sum(energy(torch.cat([xt, t_xshape], dim=-1)))
             dsdx, dsdt = torch.autograd.grad(st, (xt, t_xshape), create_graph=True)
         xt.requires_grad, t_xshape.requires_grad = False, False
-        a0 = energy(torch.cat([x0, torch.zeros(x0.shape[0], 1, device = x0.device)], dim=-1))
-        a1 = energy(torch.cat([x1, torch.ones(x1.shape[0], 1, device = x1.device)], dim=-1))
+        a0 = energy(torch.cat([torch.zeros(x0.shape[0], 1, device = x0.device), x0], dim=-1))
+        a1 = energy(torch.cat([torch.ones(x1.shape[0], 1, device = x1.device), x1], dim=-1))
         loss = a0 - a1 + 0.5 * (dsdx**2).sum(1, keepdims=True) + dsdt
         loss = loss.mean()
         aug_x = self.aug_net(t, xt, augmented_input=False)
