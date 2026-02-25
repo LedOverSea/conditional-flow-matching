@@ -1,4 +1,5 @@
 import pyrootutils
+import torch
 
 root = pyrootutils.setup_root(
     search_from=__file__,
@@ -38,3 +39,4 @@ def main(cfg: DictConfig) -> Optional[float]:
 
 if __name__ == "__main__":
     main()
+    

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-汇总EB-PHATE实验结果的脚本
+汇总实验结果的脚本
 从多个模型的metrics.csv文件中提取测试指标，生成汇总CSV文件和可视化图表
+使用时需要修改目录，建议使用绝对路径
 """
 
 import os
@@ -17,6 +18,16 @@ plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
 def get_model_name_from_config_log(model_dir):
+
+    model_name_map = {
+        "CFMLitModule": "CFM",
+        "RectifiedFlowLitModule": "RectifiedFlow",
+        "ActionMatchingLitModule": "ActionMatching",
+        "VariancePreservingCFM": "VP-CFM",
+        "SBCFMLitModule": "SBCFM",
+        "SF2MLitModule": "SF2M"
+    }
+
     """从config_tree.log中读取model._target_属性获取模型名称"""
     # model_dir是csv/version_0目录，需要向上两级到模型根目录
     model_root_dir = os.path.dirname(os.path.dirname(model_dir))  # 退回两级：csv/version_0 -> csv -> 模型根目录
@@ -35,9 +46,13 @@ def get_model_name_from_config_log(model_dir):
         lines = content.split('\n')
         target_line = None
         
+        # 是否采用ot采样
+        ot = True
         for line in lines:
             if '-- _target_:' in line and 'src.models.' in line:
                 target_line = line
+            if 'ot_sampler: null' in line:
+                ot = False
                 break
                 
         if target_line:
@@ -47,6 +62,14 @@ def get_model_name_from_config_log(model_dir):
                 # 提取最后一个点后的部分作为模型名
                 model_name = target_value.split('.')[-1]
                 print(f"  从config_tree.log提取到模型名称: {model_name}")
+                model_name = model_name_map.get(model_name, model_name)
+                # 单独判断i-cfm和ot-cfm
+                if model_name == "CFM":
+                    if ot:
+                        model_name = 'OT-CFM'
+                    else:
+                        model_name = 'I-CFM'
+
                 return model_name
             else:
                 print(f"  警告：在 {config_log_path} 中未找到有效的model._target_属性值")
@@ -335,7 +358,7 @@ def create_radar_chart(summary_df, metrics, output_dir):
 def main():
     """主函数"""
     # 设置路径
-    logs_dir = "d:\\desktop\\code\\conditional-flow-matching\\runner\\logs\\cite"
+    logs_dir = "C:\\Users\\Administrator\\Desktop\\code\\conditional-flow-matching\\runner\\logs\\logs\\1.26\\eb_pca"
     output_csv = os.path.join(logs_dir, "test_losses_summary_only_averages.csv")
     simplified_csv = os.path.join(logs_dir, "test_losses_summary_simple.csv")
     output_plots_dir = logs_dir  # 图表保存在同一个目录下

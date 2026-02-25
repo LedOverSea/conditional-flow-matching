@@ -634,7 +634,15 @@ class RectifiedFlowLitModule(CFMLitModule):
                 if training and ti_next == self.hparams.leaveout_timepoint:
                     ti_next += 1
                 x0.append(X[i, ti])
-                x1.append(X[i, ti_next])
+                # 2026/2/25 新增: 更新多个时间点的rf 样本计算
+                if self.frozen_net is not None:
+                    t_span = torch.linspace(ti, ti + 1, 100)
+                    val_node = NeuralODE(self.frozen_net, solver="euler")
+                    with torch.no_grad():
+                        _, traj = val_node(X[i, ti], t_span)
+                        x1.append(traj[-1])
+                else:
+                    x1.append(X[i, ti_next])
             x0, x1 = torch.stack(x0), torch.stack(x1)
         else:
             times = 2 # 用于rectified flow的ode更新
@@ -643,15 +651,16 @@ class RectifiedFlowLitModule(CFMLitModule):
             x0 = torch.randn_like(X)
             x1 = X
         # 源代码 只提供两个分布
-        if self.frozen_net is not None:
+        # 注释掉以下内容, 重新用形状(batch_size, )的t_select 计算 x1
+        """ if self.frozen_net is not None:
             # Currently only works for 2 distributions
             # assert t_select[0] == 0
-            # 注释掉以上断言,对于多分布也是求下一个时间点
+            
             t_span = torch.linspace(0, 1, 100)
             val_node = NeuralODE(self.frozen_net, solver="euler")
             with torch.no_grad():
                 _, traj = val_node(x0, t_span)
-                x1 = traj[-1]
+                x1 = traj[-1] """
         return x0, x1, t_select
 
     def training_epoch_end(self, training_step_outputs):
