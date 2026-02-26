@@ -699,13 +699,25 @@ class ActionMatchingLitModule(CFMLitModule):
         # t that network sees is incremented by first timepoint
         t = t + t_select.reshape(-1, *t.shape[1:])
 
-        xt.requires_grad, t_xshape.requires_grad = True, True
+        # 2026/2/26 修改：energy中传入准确时间而非时间偏移量。
+        """ xt.requires_grad, t_xshape.requires_grad = True, True
         with torch.set_grad_enabled(True):
-            st = torch.sum(energy(torch.cat([xt, t_xshape], dim=-1)))
+            st = torch.sum(energy(torch.cat([t_xshape, xt], dim=-1)))
             dsdx, dsdt = torch.autograd.grad(st, (xt, t_xshape), create_graph=True)
         xt.requires_grad, t_xshape.requires_grad = False, False
         a0 = energy(torch.cat([torch.zeros(x0.shape[0], 1, device = x0.device), x0], dim=-1))
         a1 = energy(torch.cat([torch.ones(x1.shape[0], 1, device = x1.device), x1], dim=-1))
+        loss = a0 - a1 + 0.5 * (dsdx**2).sum(1, keepdims=True) + dsdt
+        loss = loss.mean()
+        aug_x = self.aug_net(t, xt, augmented_input=False)
+        reg, vt = self.augmentations(aug_x) """
+        xt.requires_grad, t.requires_grad = True, True
+        with torch.set_grad_enabled(True):
+            st = torch.sum(energy(torch.cat([t, xt], dim=-1)))
+            dsdx, dsdt = torch.autograd.grad(st, (t, xt), create_graph=True)
+        xt.requires_grad, t.requires_grad = False, False
+        a0 = energy(torch.cat([t_select, x0], dim=-1))
+        a1 = energy(torch.cat([t_select + 1, x1], dim=-1))
         loss = a0 - a1 + 0.5 * (dsdx**2).sum(1, keepdims=True) + dsdt
         loss = loss.mean()
         aug_x = self.aug_net(t, xt, augmented_input=False)

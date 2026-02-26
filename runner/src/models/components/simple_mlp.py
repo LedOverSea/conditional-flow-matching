@@ -86,7 +86,7 @@ class VelocityNet(SimpleDenseNet):
         x = torch.cat([t, x], dim=-1)
         return self.model(x)
 
-
+# 用于兼容action matching，效果不行
 class EnergyVelocityNet(SimpleDenseNet):
     """VelocityNet with energy method for ActionMatchingLitModule compatibility.
     
@@ -156,6 +156,7 @@ class EnergyVelocityNet(SimpleDenseNet):
         # Return scalar energy values
         return energy.squeeze(-1)
 
+# 用于兼容action matching，效果不行
 class EnergyBasedNet(SimpleDenseNet):
     """
     基于能量的深度学习网络类
