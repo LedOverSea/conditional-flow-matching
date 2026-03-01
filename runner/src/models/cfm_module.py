@@ -628,6 +628,8 @@ class RectifiedFlowLitModule(CFMLitModule):
                 t_select = torch.randint(times - 1, size=(batch_size,), device=X.device)
             x0 = []
             x1 = []
+            if self.frozen_net is not None:
+                val_node = NeuralODE(self.frozen_net, solver="euler")
             for i in range(batch_size):
                 ti = t_select[i]
                 ti_next = ti + 1
@@ -637,10 +639,10 @@ class RectifiedFlowLitModule(CFMLitModule):
                 # 2026/2/25 新增: 更新多个时间点的rf 样本计算
                 if self.frozen_net is not None:
                     t_span = torch.linspace(ti, ti + 1, 100)
-                    val_node = NeuralODE(self.frozen_net, solver="euler")
+                    # val_node = NeuralODE(self.frozen_net, solver="euler")
                     with torch.no_grad():
-                        _, traj = val_node(X[i, ti], t_span)
-                        x1.append(traj[-1])
+                        _, traj = val_node(X[i, ti].unsqueeze(0), t_span)
+                        x1.append(traj[-1].squeeze(0))
                 else:
                     x1.append(X[i, ti_next])
             x0, x1 = torch.stack(x0), torch.stack(x1)
@@ -691,14 +693,17 @@ class ActionMatchingLitModule(CFMLitModule):
 
         t = torch.rand(X.shape[0]).type_as(X)
         # Fixed: Correct time dimension handling for 2D data
+        # 本实验是这种情况--x0/x1/xt: (batch_size, feature_dim), t_xshape: (batch_size, 1)
         if x0.dim() == 2:  # [batch_size, feature_dim]
             t_xshape = t.reshape(-1, 1)  # [batch_size, 1]
         else:  # For higher dimensions
             t_xshape = t.reshape(-1, *([1] * (x0.dim() - 1)))
         xt = t_xshape * x1 + (1 - t_xshape) * x0
         # t that network sees is incremented by first timepoint
+        # 本实验中, t/t_select:(batch_size, ), 在下一步中需要转换为(batch, 1)
         t = t + t_select.reshape(-1, *t.shape[1:])
-
+        t = t.unsqueeze(-1)
+        t_select = t_select.unsqueeze(-1)
         # 2026/2/26 修改：energy中传入准确时间而非时间偏移量。
         """ xt.requires_grad, t_xshape.requires_grad = True, True
         with torch.set_grad_enabled(True):
