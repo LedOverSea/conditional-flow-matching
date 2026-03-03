@@ -87,76 +87,6 @@ class VelocityNet(SimpleDenseNet):
         return self.model(x)
 
 # 用于兼容action matching，效果不行
-class EnergyVelocityNet(SimpleDenseNet):
-    """VelocityNet with energy method for ActionMatchingLitModule compatibility.
-    
-    This network provides both velocity field computation (via forward) 
-    and energy field computation (via energy) required by ActionMatchingLitModule.
-    """
-    
-    def __init__(self, dim: int, *args, **kwargs):
-        # Initialize with input_size=dim+1 for (t, x) concatenation
-        # target_size should be hidden_dim for intermediate representation
-        super().__init__(input_size=dim + 1, target_size=128, *args, **kwargs)  # Use 128 as hidden_dim
-        self.dim = dim
-        self.hidden_dim = 128
-        
-        # Create separate heads for velocity and energy
-        self.velocity_head = nn.Linear(self.hidden_dim, dim)
-        self.energy_head = nn.Linear(self.hidden_dim, 1)
-        
-    def forward(self, t, x, *args, **kwargs):
-        """Forward pass returns velocity field.
-        
-        Args:
-            t: Time parameter
-            x: Input data
-            
-        Returns:
-            Velocity field of shape [batch_size, dim]
-        """
-        # Ensure t and x are on the same device
-        t = t.to(x.device)
-        
-        if t.dim() < 1 or t.shape[0] != x.shape[0]:
-            t = t.repeat(x.shape[0])[:, None]
-        if t.dim() < 2:
-            t = t[:, None]
-
-        # Concatenate t and x
-        x_input = torch.cat([t, x], dim=-1)
-        
-        # Get intermediate representation
-        hidden = self.model(x_input)
-        
-        # Compute velocity from the velocity head
-        velocity = self.velocity_head(hidden)
-        
-        return velocity
-    
-    def energy(self, x_input):
-        """Energy function for ActionMatchingLitModule.
-        
-        Args:
-            x_input: Input data concatenated with time (should be [batch_size, dim+1])
-            
-        Returns:
-            Energy field (scalar) of shape [batch_size]
-        """
-        # Ensure input has correct shape [batch_size, dim+1]
-        if x_input.shape[-1] != self.dim + 1:
-            raise ValueError(f"Expected input shape [-1, {self.dim + 1}], got {x_input.shape}")
-        
-        # Get intermediate representation
-        hidden = self.model(x_input)
-        
-        # Compute energy from the energy head
-        energy = self.energy_head(hidden)
-        
-        # Return scalar energy values
-        return energy.squeeze(-1)
-
-# 用于兼容action matching，效果不行
 class EnergyBasedNet(SimpleDenseNet):
     """
     基于能量的深度学习网络类
@@ -190,26 +120,38 @@ class EnergyBasedNet(SimpleDenseNet):
         适配场景：self.energy 是普通函数，而非 nn.Module
         Args:
             t: 时间标量，shape=(batch_size,) 或 ()
-            x: 状态向量，shape=(batch_size, d)（需要求导）
+            x: 状态向量，shape=(batch_size, d)
         Returns:
             梯度值，shape=(batch_size, d)
         """
-        # 核心：强制开启梯度上下文（覆盖PL的no_grad）
+        t = t.to(x.device)
+
+        if t.dim() < 1 or t.shape[0] != x.shape[0]:
+            t = t.repeat(x.shape[0])[:, None]
+        if t.dim() < 2:
+            t = t[:, None]
+        # x = torch.cat([t, x], dim=-1)
+        # x.requires_grad, t.requires_grad = True, True
+
+        # t = t + torch.rand(size = (x.shape[0], 1)).type_as(x)
+        
+        
+        with torch.inference_mode(mode=False):
+            t_leaf = t.clone().requires_grad_(True)
+            x_leaf = x.clone().requires_grad_(True)
+            st = torch.sum(self.energy(torch.cat([t_leaf, x_leaf], dim=-1)))
+            dsdt, dsdx = torch.autograd.grad(st, (t_leaf, x_leaf), create_graph=True)
+        return dsdx
+
+
+        # 以下是旧版本的写法, 于2026/3/1重写
+        """ # 核心：强制开启梯度上下文（覆盖PL的no_grad）
         with torch.enable_grad():
             # 正确创建可追踪梯度的叶子张量（去掉detach，避免计算图断裂）
             x_leaf = x.clone().requires_grad_(True)
             batch_size = x_leaf.shape[0]
             device = x_leaf.device
-            """ 
-            # 标准化t的形状为 (batch_size, 1)
-            t = t.to(device)
-            if t.dim() == 0:
-                t = t.expand(batch_size, 1)
-            elif t.dim() == 1:
-                t = t.unsqueeze(-1)
-            else:
-                t = t[:, :1]  # 仅保留batch维度和1个时间维度 
-            """
+            
             t = t.to(device)
             # 步骤1：压缩所有多余维度，只保留必要维度
             t = t.squeeze()  # 把标量/[1]/[1,1]/[128,1]都转为标量/[128]
@@ -266,7 +208,7 @@ class EnergyBasedNet(SimpleDenseNet):
             # 确保梯度张量和原x的设备/类型一致
             grad = grad.to(x.dtype).to(x.device)
             
-            return grad
+            return grad """
 
 if __name__ == "__main__":
     _ = SimpleDenseNet()

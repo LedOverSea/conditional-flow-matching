@@ -717,9 +717,15 @@ class ActionMatchingLitModule(CFMLitModule):
         aug_x = self.aug_net(t, xt, augmented_input=False)
         reg, vt = self.augmentations(aug_x) """
         xt.requires_grad, t.requires_grad = True, True
-        with torch.set_grad_enabled(True):
+        # with torch.set_grad_enabled(True):
+        #     st = torch.sum(energy(torch.cat([t, xt], dim=-1)))
+        #     dsdt, dsdx = torch.autograd.grad(st, (t, xt), create_graph=True)
+        
+        with torch.inference_mode(mode=False):
+            # 这里可以计算梯度
+            # with torch.set_grad_enabled(True):
             st = torch.sum(energy(torch.cat([t, xt], dim=-1)))
-            dsdx, dsdt = torch.autograd.grad(st, (t, xt), create_graph=True)
+            dsdt, dsdx = torch.autograd.grad(st, (t, xt), create_graph=True)
         xt.requires_grad, t.requires_grad = False, False
         a0 = energy(torch.cat([t_select, x0], dim=-1))
         a1 = energy(torch.cat([t_select + 1, x1], dim=-1))

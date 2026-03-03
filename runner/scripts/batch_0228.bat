@@ -1,5 +1,5 @@
 echo 1.RectifiedFlowLitModule...
-python "src/train.py" "experiment=eb_phate" "model=rf" 
+python "src/train.py" "experiment=eb_phate" "model=rf" "trainer.max_epochs=50" "model.rectify_epochs=[10,20,30,40,50]"
 
 echo 2.ActionMatchingLitModule...
-python "src/train.py" "experiment=eb_phate" "model=am"
+python "src/train.py" "experiment=eb_phate" "model=am" "trainer.max_epochs=50"
