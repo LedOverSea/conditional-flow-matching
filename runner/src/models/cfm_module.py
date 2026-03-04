@@ -529,6 +529,150 @@ class CFMLitModule(LightningModule):
         scheduler.step(epoch=self.current_epoch)
 
 
+# class RectifiedFlowLitModule(CFMLitModule):
+#     def __init__(
+#         self,
+#         net: Any,
+#         optimizer: Any,
+#         datamodule: LightningDataModule,
+#         augmentations: AugmentationModule,
+#         partial_solver: FlowSolver,
+#         val_augmentations: Optional[AugmentationModule] = None,
+#         scheduler: Optional[Any] = None,
+#         neural_ode: Optional[Any] = None,
+#         ot_sampler: Optional[Union[str, Any]] = None,
+#         sigma_min: float = 0.1,
+#         rectify_epochs: Optional[List[int]] = None,
+#         test_nfe: int = 100,
+#         avg_size: int = -1,
+#         leaveout_timepoint: int = -1,
+#         plot: bool = False,
+#         nice_name: str = "Rect",
+#     ) -> None:
+#         """Initialize a conditional flow matching network either as a generative model or for a
+#         sequence of timepoints.
+
+#         Args:
+#             net: torch module representing dx/dt = f(t, x) for t in [1, T] missing dimension.
+#             optimizer: partial torch.optimizer missing parameters.
+#             datamodule: datamodule object needs to have "dim", "IS_TRAJECTORY" properties.
+#             ot_sampler: ot_sampler specified as an object or string. If none then no OT is used in minibatch.
+#             sigma_min: sigma_min determines the width of the Gaussian smoothing of the data and interpolations.
+#             leaveout_timepoint: which (if any) timepoint to leave out during the training phase
+#             plot: if true, log intermediate plots during validation
+#         """
+#         super(CFMLitModule, self).__init__()
+#         self.save_hyperparameters(
+#             ignore=[
+#                 "net",
+#                 "optimizer",
+#                 "scheduler",
+#                 "datamodule",
+#                 "augmentations",
+#                 "val_augmentations",
+#                 "partial_solver",
+#             ],
+#             logger=False,
+#         )
+#         self.datamodule = datamodule
+#         self.is_trajectory = False
+#         if hasattr(datamodule, "IS_TRAJECTORY"):
+#             self.is_trajectory = datamodule.IS_TRAJECTORY
+#         if hasattr(datamodule, "dim"):
+#             self.dim = datamodule.dim
+#             self.is_image = False
+#         elif hasattr(datamodule, "dims"):
+#             self.dim = datamodule.dims
+#             self.is_image = True
+#         else:
+#             raise NotImplementedError("Datamodule must have either dim or dims")
+#         self.net = net(dim=self.dim)
+#         self.frozen_net = None
+#         self.augmentations = augmentations
+#         self.aug_net = AugmentedVectorField(self.net, self.augmentations.regs, self.dim)
+#         self.val_augmentations = val_augmentations
+#         if val_augmentations is None:
+#             self.val_augmentations = AugmentationModule(
+#                 l1_reg=1,
+#                 l2_reg=1,
+#                 squared_l2_reg=1,
+#             )
+#         self.val_aug_net = AugmentedVectorField(self.net, self.val_augmentations.regs, self.dim)
+#         if neural_ode is not None:
+#             self.aug_node = Sequential(
+#                 self.augmentations.augmenter,
+#                 neural_ode(self.aug_net),
+#             )
+#         self.partial_solver = partial_solver
+#         self.optimizer = optimizer
+#         self.scheduler = scheduler
+#         self.ot_sampler = ot_sampler
+#         if ot_sampler == "None":
+#             self.ot_sampler = None
+#         if isinstance(self.ot_sampler, str):
+#             # regularization taken for optimal Schrodinger bridge relationship
+#             self.ot_sampler = OTPlanSampler(method=ot_sampler, reg=2 * sigma_min**2)
+#         self.criterion = torch.nn.MSELoss()
+
+#     def preprocess_batch(self, X, training=False):
+#         """Converts a batch of data into matched a random pair of (x0, x1)"""
+#         t_select = torch.zeros(1, device=X.device)
+        
+#         if self.is_trajectory:
+#             batch_size, times, dim = X.shape
+#             if training and self.hparams.leaveout_timepoint > 0:
+#                 # Select random except for the leftout timepoint
+#                 t_select = torch.randint(times - 2, size=(batch_size,), device=X.device)
+#                 t_select[t_select >= self.hparams.leaveout_timepoint] += 1
+#             else:
+#                 t_select = torch.randint(times - 1, size=(batch_size,), device=X.device)
+#             x0 = []
+#             x1 = []
+#             if self.frozen_net is not None:
+#                 val_node = NeuralODE(self.frozen_net, solver="euler")
+#             for i in range(batch_size):
+#                 ti = t_select[i]
+#                 ti_next = ti + 1
+#                 if training and ti_next == self.hparams.leaveout_timepoint:
+#                     ti_next += 1
+#                 x0.append(X[i, ti])
+#                 # 2026/2/25 新增: 更新多个时间点的rf 样本计算
+#                 if self.frozen_net is not None:
+#                     t_span = torch.linspace(ti, ti + 1, 100)
+#                     # val_node = NeuralODE(self.frozen_net, solver="euler")
+#                     with torch.no_grad():
+#                         _, traj = val_node(X[i, ti].unsqueeze(0), t_span)
+#                         x1.append(traj[-1].squeeze(0))
+#                 else:
+#                     x1.append(X[i, ti_next])
+#             x0, x1 = torch.stack(x0), torch.stack(x1)
+#         else:
+#             times = 2 # 用于rectified flow的ode更新
+#             batch_size = X.shape[0]
+#             # If no trajectory assume generate from standard normal
+#             x0 = torch.randn_like(X)
+#             x1 = X
+#         # 源代码 只提供两个分布
+#         # 注释掉以下内容, 重新用形状(batch_size, )的t_select 计算 x1
+#         """ if self.frozen_net is not None:
+#             # Currently only works for 2 distributions
+#             # assert t_select[0] == 0
+            
+#             t_span = torch.linspace(0, 1, 100)
+#             val_node = NeuralODE(self.frozen_net, solver="euler")
+#             with torch.no_grad():
+#                 _, traj = val_node(x0, t_span)
+#                 x1 = traj[-1] """
+#         return x0, x1, t_select
+
+#     def training_epoch_end(self, training_step_outputs):
+#         if (
+#             self.hparams.rectify_epochs is not None
+#             and self.current_epoch in self.hparams.rectify_epochs
+#         ):
+#             self.frozen_net = copy.deepcopy(self.net)
+
+# 2026/3/4 修改采样策略，每次训练的batch中只选择一个时间点，而非每个样本都选随机时间点
 class RectifiedFlowLitModule(CFMLitModule):
     def __init__(
         self,
@@ -620,31 +764,22 @@ class RectifiedFlowLitModule(CFMLitModule):
         
         if self.is_trajectory:
             batch_size, times, dim = X.shape
+            t_select = torch.randint(times - 1, device=X.device)
             if training and self.hparams.leaveout_timepoint > 0:
                 # Select random except for the leftout timepoint
-                t_select = torch.randint(times - 2, size=(batch_size,), device=X.device)
+                t_select = torch.randint(times - 2, device=X.device).repeat(batch_size)
                 t_select[t_select >= self.hparams.leaveout_timepoint] += 1
             else:
-                t_select = torch.randint(times - 1, size=(batch_size,), device=X.device)
+                t_select = torch.randint(times - 1, device=X.device).repeat(batch_size)
             x0 = []
             x1 = []
-            if self.frozen_net is not None:
-                val_node = NeuralODE(self.frozen_net, solver="euler")
             for i in range(batch_size):
                 ti = t_select[i]
                 ti_next = ti + 1
                 if training and ti_next == self.hparams.leaveout_timepoint:
                     ti_next += 1
                 x0.append(X[i, ti])
-                # 2026/2/25 新增: 更新多个时间点的rf 样本计算
-                if self.frozen_net is not None:
-                    t_span = torch.linspace(ti, ti + 1, 100)
-                    # val_node = NeuralODE(self.frozen_net, solver="euler")
-                    with torch.no_grad():
-                        _, traj = val_node(X[i, ti].unsqueeze(0), t_span)
-                        x1.append(traj[-1].squeeze(0))
-                else:
-                    x1.append(X[i, ti_next])
+                x1.append(X[i, ti_next])
             x0, x1 = torch.stack(x0), torch.stack(x1)
         else:
             times = 2 # 用于rectified flow的ode更新
@@ -654,15 +789,16 @@ class RectifiedFlowLitModule(CFMLitModule):
             x1 = X
         # 源代码 只提供两个分布
         # 注释掉以下内容, 重新用形状(batch_size, )的t_select 计算 x1
-        """ if self.frozen_net is not None:
+        if self.frozen_net is not None:
             # Currently only works for 2 distributions
             # assert t_select[0] == 0
             
             t_span = torch.linspace(0, 1, 100)
+            t_span = t_span + t_select[0]
             val_node = NeuralODE(self.frozen_net, solver="euler")
             with torch.no_grad():
                 _, traj = val_node(x0, t_span)
-                x1 = traj[-1] """
+                x1 = traj[-1]
         return x0, x1, t_select
 
     def training_epoch_end(self, training_step_outputs):

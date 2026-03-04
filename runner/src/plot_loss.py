@@ -105,7 +105,7 @@ def plot_loss_for_experiment(csv_path, output_dir):
     return True
 
 def main():
-    logs_dir = r"c:\Users\Administrator\Desktop\code\conditional-flow-matching\runner\logs\logs\1.26"
+    logs_dir = r"C:\Users\Administrator\Desktop\code\conditional-flow-matching\runner\logs\3.3 am"
 
     csv_files = glob.glob(os.path.join(logs_dir, "**/metrics.csv"), recursive=True)
 
