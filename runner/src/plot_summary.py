@@ -188,10 +188,7 @@ def create_simplified_summary(summary_df, output_path):
         '2-Wasserstein': 'test/2-Wasserstein', 
         'Mean_MSE': 'test/Mean_MSE',
         'Mean_L2': 'test/Mean_L2',
-        'Mean_L1': 'test/Mean_L1',
-        'Median_MSE': 'test/Median_MSE',
-        'Median_L2': 'test/Median_L2',
-        'Median_L1': 'test/Median_L1'
+        'Mean_L1': 'test/Mean_L1'
     }
     
     # 创建简化DataFrame
@@ -225,8 +222,7 @@ def create_visualizations(summary_df, output_dir):
     # 定义要可视化的关键指标
     key_metrics = [
         'test/1-Wasserstein', 'test/2-Wasserstein', 
-        'test/Mean_MSE', 'test/Mean_L2', 'test/Mean_L1',
-        'test/Median_MSE', 'test/Median_L2', 'test/Median_L1'
+        'test/Mean_MSE', 'test/Mean_L2', 'test/Mean_L1'
     ]
     
     # 筛选存在的指标
@@ -358,7 +354,7 @@ def create_radar_chart(summary_df, metrics, output_dir):
 def main():
     """主函数"""
     # 设置路径
-    logs_dir = "C:\\Users\\Administrator\\Desktop\\code\\conditional-flow-matching\\runner\\logs\\logs\\1.26\\eb_pca"
+    logs_dir = "D:\\desktop\\code\\conditional-flow-matching\\runner\\logs\\1.26\\multi"
     output_csv = os.path.join(logs_dir, "test_losses_summary_only_averages.csv")
     simplified_csv = os.path.join(logs_dir, "test_losses_summary_simple.csv")
     output_plots_dir = logs_dir  # 图表保存在同一个目录下

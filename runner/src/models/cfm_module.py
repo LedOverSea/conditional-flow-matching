@@ -764,13 +764,13 @@ class RectifiedFlowLitModule(CFMLitModule):
         
         if self.is_trajectory:
             batch_size, times, dim = X.shape
-            t_select = torch.randint(times - 1, device=X.device)
+            
             if training and self.hparams.leaveout_timepoint > 0:
                 # Select random except for the leftout timepoint
-                t_select = torch.randint(times - 2, device=X.device).repeat(batch_size)
+                t_select = torch.randint(times - 2, size = (1,), device=X.device).repeat(batch_size)
                 t_select[t_select >= self.hparams.leaveout_timepoint] += 1
             else:
-                t_select = torch.randint(times - 1, device=X.device).repeat(batch_size)
+                t_select = torch.randint(times - 1, size = (1,), device=X.device).repeat(batch_size)
             x0 = []
             x1 = []
             for i in range(batch_size):
@@ -794,7 +794,7 @@ class RectifiedFlowLitModule(CFMLitModule):
             # assert t_select[0] == 0
             
             t_span = torch.linspace(0, 1, 100)
-            t_span = t_span + t_select[0]
+            t_span = t_span.to(t_select.device) + t_select[0]
             val_node = NeuralODE(self.frozen_net, solver="euler")
             with torch.no_grad():
                 _, traj = val_node(x0, t_span)
