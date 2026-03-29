@@ -354,7 +354,7 @@ def create_radar_chart(summary_df, metrics, output_dir):
 def main():
     """主函数"""
     # 设置路径
-    logs_dir = "D:\\desktop\\code\\conditional-flow-matching\\runner\\logs\\1.26\\multi"
+    logs_dir = "D:\\desktop\\code\\conditional-flow-matching\\runner\\logs\\1.26\\cite"
     output_csv = os.path.join(logs_dir, "test_losses_summary_only_averages.csv")
     simplified_csv = os.path.join(logs_dir, "test_losses_summary_simple.csv")
     output_plots_dir = logs_dir  # 图表保存在同一个目录下
