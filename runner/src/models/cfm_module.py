@@ -113,7 +113,9 @@ class CFMLitModule(LightningModule):
             self.ot_sampler = None
         if isinstance(self.ot_sampler, str):
             # regularization taken for optimal Schrodinger bridge relationship
-            self.ot_sampler = OTPlanSampler(method=ot_sampler, reg=2 * sigma_min**2)
+            # self.ot_sampler = OTPlanSampler(method=ot_sampler, reg=2 * sigma_min**2)
+            # 2026/4/2 超参数搜索, sigma_min作为要搜索的正则化参数
+            self.ot_sampler = OTPlanSampler(method=ot_sampler, reg= sigma_min)
         self.criterion = torch.nn.MSELoss()
 
     def forward_integrate(self, batch: Any, t_span: torch.Tensor):
