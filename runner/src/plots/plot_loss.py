@@ -2,6 +2,16 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import glob
+import sys
+
+# 添加当前目录到系统路径
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+# 导入模板配置
+from template.plot_journal_template import set_paper_style, get_palette_colors, SINGLE_COLUMN, DOUBLE_COLUMN, export_figure
+
+# 设置论文作图风格
+set_paper_style()
 
 def get_model_name_from_config(model_dir):
     model_name_map = {

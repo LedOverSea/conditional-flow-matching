@@ -8,10 +8,16 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import os
+import sys
 
-# 设置全局字体为 Times New Roman，符合学术论文要求
-plt.rcParams['font.family'] = 'Times New Roman'
-plt.rcParams['font.size'] = 10
+# 添加当前目录到系统路径
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+# 导入模板配置
+from template.plot_journal_template import set_paper_style, get_palette_colors, SINGLE_COLUMN, DOUBLE_COLUMN, export_figure
+
+# 设置论文作图风格
+set_paper_style()
 
 # 模拟输入数据
 # 模型数据: (4, 5) - 4个模型, 5个指标
@@ -48,15 +54,8 @@ fig, ax = plt.subplots(figsize=(10, 6))
 x = np.arange(len(model_names))  # 横坐标位置
 width = 0.12  # 柱形宽度，适当减小以避免拥挤
 
-# 学术论文友好的配色方案 - 使用柔和且专业的颜色
-# 参考 ColorBrewer 配色方案，适合学术论文
-colors = [
-    '#0072B2',  # 深蓝色
-    '#D55E00',  # 橙红色
-    '#009E73',  # 深绿色
-    '#CC79A7',  # 淡紫色
-    '#F0E442',  # 淡黄色
-]
+# 使用模板中的颜色方案
+colors = get_palette_colors()
 
 # 绘制每个指标的柱形
 for i, metric_name in enumerate(metric_names):
@@ -64,16 +63,16 @@ for i, metric_name in enumerate(metric_names):
     bars = ax.bar(x + offset, data[:, i], width, label=metric_name, color=colors[i])
 
 # 设置标签
-ax.set_xlabel('Batch Size', fontsize=12)
-ax.set_ylabel('Value', fontsize=12)
-ax.set_title('Model Performance Comparison', fontsize=14, fontweight='bold')
+ax.set_xlabel('Batch Size')
+ax.set_ylabel('Value')
+ax.set_title('Model Performance Comparison')
 
 # 设置x轴刻度标签
 ax.set_xticks(x)
-ax.set_xticklabels(model_names, fontsize=11)
+ax.set_xticklabels(model_names)
 
 # 添加图例，放置在图外以避免遮挡
-ax.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=10, frameon=False)
+ax.legend(loc='upper left', bbox_to_anchor=(1, 1), frameon=False)
 
 # 添加网格线，使用较浅的颜色
 ax.grid(axis='y', alpha=0.2, linestyle='--')
@@ -82,11 +81,10 @@ ax.grid(axis='y', alpha=0.2, linestyle='--')
 plt.subplots_adjust(right=0.85)
 plt.tight_layout()
 
-# 保存图片到当前目录
-save_path = os.path.join(os.path.dirname(__file__), "model_comparison_academic.png")
-plt.savefig(save_path, dpi=300, bbox_inches='tight')
+# 保存图片到当前目录，使用模板中的导出函数
+export_figure(fig, "model_comparison_academic", outdir=os.path.dirname(__file__))
 
-print(f"图片已保存到: {save_path}")
+print(f"图片已保存到: {os.path.dirname(__file__)}")
 
 # 显示图形
 plt.show()

@@ -12,10 +12,16 @@ import numpy as np
 import glob
 from pathlib import Path
 import seaborn as sns
+import sys
 
-# 设置中文字体
-plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
-plt.rcParams['axes.unicode_minus'] = False
+# 添加当前目录到系统路径
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+# 导入模板配置
+from template.plot_journal_template import set_paper_style, get_palette_colors, SINGLE_COLUMN, DOUBLE_COLUMN, export_figure
+
+# 设置论文作图风格
+set_paper_style()
 
 def get_model_name_from_config_log(model_dir):
 
