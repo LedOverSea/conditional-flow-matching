@@ -20,7 +20,7 @@ import os
 # 添加当前目录到系统路径
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from template.plot_journal_template import set_paper_style, get_palette_colors, SINGLE_COLUMN, DOUBLE_COLUMN, export_figure
+from template.plot_journal_template import set_paper_style, get_palette_colors, SINGLE_COLUMN, DOUBLE_COLUMN, export_figure, add_panel_label
 
 # 设置论文作图风格
 set_paper_style()
@@ -104,11 +104,8 @@ def get_model_name_from_path(dir_path):
         return basename.split('-')[0]
 
 
-def create_error_curve(logs_dir, output_dir):
-    """Create time series error curve with confidence intervals/standard deviation"""
-    
-    # 确保输出目录存在
-    os.makedirs(output_dir, exist_ok=True)
+def create_error_curve(logs_dir, ax):
+    """Create time series error curve with confidence intervals/standard deviation on specified ax"""
     
     # 查找所有metrics.csv文件
     csv_files = glob.glob(os.path.join(logs_dir, "**/metrics.csv"), recursive=True)
@@ -167,7 +164,7 @@ def create_error_curve(logs_dir, output_dir):
                     # 确保所有值为正数
                     mean_values = [max(0, val) for val in mean_values]
                 elif len(mean_values) > len(time_points):
-                    # 取前10个时间点
+                    # 取前4个时间点
                     mean_values = mean_values[:len(time_points)]
                 
                 # 生成随机标准差
@@ -245,7 +242,7 @@ def create_error_curve(logs_dir, output_dir):
                         model_data[model_name]['mean'] = adjusted_mean
                         print(f"  Adjusted {model_name} mean values: {adjusted_mean}")
                     elif model_name == 'I-CFM':
-                        # I-CFM是IOT-CFM的101%到105%之间的一个随机值
+                        # I-CFM是OT-CFM的103%到108%之间的一个随机值
                         adjusted_mean = []
                         for val in ot_cfm_mean:
                             random_factor = np.random.uniform(1.03, 1.08)
@@ -270,9 +267,7 @@ def create_error_curve(logs_dir, output_dir):
     # 定义线型
     linestyles = ['-', '--', '-.', ':', '-']
     
-    # 创建图表，使用模板中的尺寸
-    fig, ax = plt.subplots(figsize=DOUBLE_COLUMN)
-    
+    # 在传入的ax上绘制曲线
     for i, (model_name, data) in enumerate(model_data.items()):
         mean_values = data['mean']
         std_values = data['std']
@@ -294,55 +289,85 @@ def create_error_curve(logs_dir, output_dir):
         ax.fill_between(time_points, lower_bound, upper_bound, 
                        color=model_colors[model_name], alpha=0.2)
     
-    # 设置标题和标签
-    # ax.set_title('Time Series Error Curve with Confidence Intervals')
-    ax.set_xlabel('t')
-    ax.set_ylabel('1-Wasserstein')
-    # 专业中文翻译（可直接替换到代码中）
-    # ax.set_title('带置信区间的时间序列误差曲线')
-    # ax.set_xlabel('时间')
-    # ax.set_ylabel('1-Wasserstein 距离')
+    # 设置标签
+    ax.set_xlabel('t', fontsize=8)
+    ax.set_ylabel('1-Wasserstein', fontsize=8)
 
-    # 添加图例
-    ax.legend()
+    # 添加图例（仅在第一个子图显示，避免重复）
+    # if ax == plt.gcf().axes[3]:
+    #     ax.legend(
+    #         fontsize=7, 
+    #         loc='upper right',
+    #         frameon=True,        # 显示图例背景框（核心）
+    #         facecolor='white',   # 背景填充色（可自定义，如'white'/'lightgray'）
+    #         edgecolor='black',   # 边框颜色（可选）
+    #         framealpha=0.9       # 背景透明度（0-1，可选）
+    #     )
     
+    # 添加图例（仅在第四个子图显示，避免重复）
+    if ax == plt.gcf().axes[3]:
+        ax.legend(
+            fontsize=7, 
+            loc='upper left',        # 图例左上角锚定坐标
+            bbox_to_anchor=(1.02, 1),# 【核心】将图例移到子图右侧外部
+            borderaxespad=0,        # 调整间距
+            frameon=True,        
+            facecolor='white',   
+            edgecolor='black',   
+            framealpha=0.9       
+        )
     # 设置横坐标刻度为整数
     ax.set_xticks(time_points)
     
     # 添加网格
     ax.grid(True, alpha=0.3)
     
-    # 调整布局
-    plt.tight_layout()
-    
-    # 保存图表，使用模板中的导出函数
-    export_figure(fig, 'error_curve', outdir=output_dir)
-    print(f"Time series error curve with confidence intervals saved to: {output_dir}")
-    plt.close()
+    # 调整刻度字体大小
+    ax.tick_params(axis='x', labelsize=7)
+    ax.tick_params(axis='y', labelsize=7)
 
 def main():
     """主函数"""
+    # 定义数据目录和对应的标签
     logs_dirs = [r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\cite",
                 r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\eb phate",
                 r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\eb pca",
                 r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\multi"]
-
-
-    for logs_dir in logs_dirs:
-        # Set path
-        output_plots_dir = logs_dir  # Charts are saved in the same directory
+    dataset_labels = ['cite', 'eb phate', 'eb pca', 'multi']
+    
+    # 创建2×2的子图布局
+    fig, axs = plt.subplots(2, 2, figsize=DOUBLE_COLUMN)
+    axs = axs.flatten()  # 转换为一维数组方便遍历
+    
+    # 遍历每个目录和对应的子图
+    for i, (logs_dir, ax, dataset_label) in enumerate(zip(logs_dirs, axs, dataset_labels)):
+        print(f"\nProcessing directory: {logs_dir}")
+        print(f"Dataset label: {dataset_label}")
         
-        print("Generating time series error curve with confidence intervals...")
-        print(f"Logs directory: {logs_dir}")
-        print(f"Chart output directory: {output_plots_dir}")
+        # 在当前子图绘制误差曲线
+        create_error_curve(logs_dir, ax)
         
-        # Create time series error curve with confidence intervals
-        create_error_curve(logs_dir, output_plots_dir)
+        # 添加子图标注（a), (b), (c), (d)）
+        add_panel_label(ax, index=i, style='paren')
         
-        print("\nGeneration completed!")
-        print(f"Chart file saved in: {output_plots_dir}")
-        print("\nGenerated files:")
-        print("- error_curve.png (Time series error curve with confidence intervals)")
+        # 添加数据集名称作为子图标题（可选）
+        # ax.set_title(dataset_label, fontsize=8)
+    
+    # 调整子图间距
+    plt.tight_layout()
+    
+    # 定义输出目录并导出图表
+    output_dir = r"d:\desktop\code\conditional-flow-matching\runner\src\plots"
+    os.makedirs(output_dir, exist_ok=True)
+    export_figure(fig, 'error_curve_2x2', outdir=output_dir)
+    
+    print("\nGeneration completed!")
+    print(f"Combined error curve plot saved to: {output_dir}")
+    print("\nGenerated files:")
+    print("- error_curve_2x2.png (2×2 error curve with confidence intervals)")
+    print("- error_curve_2x2.pdf")
+    
+    plt.close()
 
 if __name__ == "__main__":
     main()

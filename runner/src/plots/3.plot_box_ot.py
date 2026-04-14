@@ -16,7 +16,7 @@ import sys
 # 添加当前目录到系统路径
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from template.plot_journal_template import set_paper_style, get_palette_colors, DOUBLE_COLUMN, export_figure
+from template.plot_journal_template import set_paper_style, get_palette_colors, DOUBLE_COLUMN, export_figure, add_panel_label
 
 # 设置论文作图风格
 set_paper_style()
@@ -219,11 +219,8 @@ def create_summary_csv(logs_dir, output_path):
     
     return summary_df
 
-def create_boxplot(summary_df, output_dir):
+def create_boxplot(summary_df, ax):
     """创建箱线图比较不同模型的W1指标（使用多个时间点的数据）"""
-    
-    # 确保输出目录存在
-    os.makedirs(output_dir, exist_ok=True)
     
     # 筛选指定的模型
     target_models = ['I-CFM', 'OT-CFM', 'EOT-CFM', 'UOT-CFM', 'POT-CFM']
@@ -245,9 +242,6 @@ def create_boxplot(summary_df, output_dir):
         'POT-CFM': colors[4]
     }
 
-    # 创建箱线图
-    fig, ax = plt.subplots(figsize=DOUBLE_COLUMN)
-    
     # 为每个模型准备数据
     data = []
     model_labels = []
@@ -307,39 +301,56 @@ def create_boxplot(summary_df, output_dir):
     # 添加网格
     ax.grid(True, alpha=0.3)
     
-    # 调整布局
-    plt.tight_layout()
-    
-    # 保存图表，使用模板中的导出函数
-    export_figure(fig, 'boxplot_w1', outdir=output_dir)
-    print(f"W1指标箱线图已保存到: {output_dir}")
-    plt.close()
+    ax.tick_params(axis='x', rotation=30, labelsize=8)
+    ax.tick_params(axis='y', labelsize=8)
+    return True
 
 def main():
     """主函数"""
-    logs_dirs = [r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\cite",
-                r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\eb phate",
+    logs_dirs = [r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\eb phate",
                 r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\eb pca",
-                r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\multi"]
+                 r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\multi",
+                r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\cite"
+               ]
 
-    for logs_dir in logs_dirs:
-        # Set path
-        output_plots_dir = logs_dir  # Charts are saved in the same directory
-        
+    # 创建一个 2x2 的大图
+    fig, axs = plt.subplots(2, 2, figsize=DOUBLE_COLUMN)
+    axs = axs.flatten()  # 转换为一维数组
+    
+    # 数据集名称标签
+    dataset_labels = ['cite', 'eb phate', 'eb pca', 'multi']
+
+    for i, (logs_dir, ax, dataset_label) in enumerate(zip(logs_dirs, axs, dataset_labels)):
         print(f"Processing directory: {logs_dir}")
         
         # Create summary CSV
-        summary_csv_path = os.path.join(output_plots_dir, 'summary.csv')
+        summary_csv_path = os.path.join(logs_dir, 'summary.csv')
         summary_df = create_summary_csv(logs_dir, summary_csv_path)
         
         if summary_df is not None:
-            # Create boxplot
-            create_boxplot(summary_df, output_plots_dir)
-        
-        print("\nGeneration completed!")
-        print(f"Chart file saved in: {output_plots_dir}")
-        print("\nGenerated files:")
-        print("- boxplot_w1.png (W1 metric boxplot for ablation study)")
+            # Create boxplot in the current subplot
+            create_boxplot(summary_df, ax)
+            # 添加子图标签
+            add_panel_label(ax, index=i, style='paren')
+            # 添加数据集名称作为子图标题
+            # ax.set_title(dataset_label, fontsize=8)
+        else:
+            print(f"No valid data for {dataset_label}")
+    
+    # 调整布局
+    plt.tight_layout()
+    
+    # 导出图表到指定文件夹
+    output_dir = r"d:\desktop\code\conditional-flow-matching\runner\src\plots"
+    export_figure(fig, 'boxplot_w1_combined', outdir=output_dir)
+    print(f"Combined W1 boxplot saved to: {output_dir}")
+    plt.close()
+    
+    print("\nGeneration completed!")
+    print(f"Chart file saved in: {output_dir}")
+    print("\nGenerated files:")
+    print("- boxplot_w1_combined.png (Combined W1 metric boxplot for ablation study)")
+    print("- boxplot_w1_combined.pdf")
 
 if __name__ == "__main__":
     main()

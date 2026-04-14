@@ -93,7 +93,7 @@ def get_palette_colors(name=DEFAULT_PALETTE_NAME):
 # =========================================================
 # 五、统一全局作图风格
 # =========================================================
-def set_paper_style(base_fontsize=7):
+def set_paper_style(base_fontsize=10):
     """
     设置统一的论文作图风格（基于 matplotlib.rcParams）。
     """
