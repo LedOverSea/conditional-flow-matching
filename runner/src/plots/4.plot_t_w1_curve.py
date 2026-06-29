@@ -289,55 +289,50 @@ def create_error_curve(logs_dir, ax):
         ax.fill_between(time_points, lower_bound, upper_bound, 
                        color=model_colors[model_name], alpha=0.2)
     
+    # 收集所有模型的标签和颜色，用于统一图例
+    handles = []
+    labels = []
+    for i, (model_name, data) in enumerate(model_data.items()):
+        handle = plt.Line2D([], [], 
+                          color=model_colors[model_name],
+                          linestyle=linestyles[i % len(linestyles)],
+                          label=model_name)
+        handles.append(handle)
+        labels.append(model_name)
+    
     # 设置标签
     ax.set_xlabel('t', fontsize=8)
     ax.set_ylabel('1-Wasserstein', fontsize=8)
-
-    # 添加图例（仅在第一个子图显示，避免重复）
-    # if ax == plt.gcf().axes[3]:
-    #     ax.legend(
-    #         fontsize=7, 
-    #         loc='upper right',
-    #         frameon=True,        # 显示图例背景框（核心）
-    #         facecolor='white',   # 背景填充色（可自定义，如'white'/'lightgray'）
-    #         edgecolor='black',   # 边框颜色（可选）
-    #         framealpha=0.9       # 背景透明度（0-1，可选）
-    #     )
     
-    # 添加图例（仅在第四个子图显示，避免重复）
-    if ax == plt.gcf().axes[3]:
-        ax.legend(
-            fontsize=7, 
-            loc='upper left',        # 图例左上角锚定坐标
-            bbox_to_anchor=(1.02, 1),# 【核心】将图例移到子图右侧外部
-            borderaxespad=0,        # 调整间距
-            frameon=True,        
-            facecolor='white',   
-            edgecolor='black',   
-            framealpha=0.9       
-        )
     # 设置横坐标刻度为整数
     ax.set_xticks(time_points)
     
     # 添加网格
-    ax.grid(True, alpha=0.3)
+    # ax.grid(True, alpha=0.3)
     
     # 调整刻度字体大小
     ax.tick_params(axis='x', labelsize=7)
     ax.tick_params(axis='y', labelsize=7)
+    
+    return handles, labels
 
 def main():
     """主函数"""
     # 定义数据目录和对应的标签
-    logs_dirs = [r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\cite",
+    logs_dirs = [
                 r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\eb phate",
                 r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\eb pca",
-                r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\multi"]
+                r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\multi",
+                r"D:\desktop\code\conditional-flow-matching\runner\logs\3.29\cite",]
     dataset_labels = ['cite', 'eb phate', 'eb pca', 'multi']
     
-    # 创建2×2的子图布局
-    fig, axs = plt.subplots(2, 2, figsize=DOUBLE_COLUMN)
+    # 创建2×2的子图布局，添加顶部空间用于图例
+    fig, axs = plt.subplots(2, 2, figsize=DOUBLE_COLUMN, gridspec_kw={'top': 0.85})
     axs = axs.flatten()  # 转换为一维数组方便遍历
+    
+    # 存储图例句柄和标签
+    all_handles = []
+    all_labels = []
     
     # 遍历每个目录和对应的子图
     for i, (logs_dir, ax, dataset_label) in enumerate(zip(logs_dirs, axs, dataset_labels)):
@@ -345,7 +340,12 @@ def main():
         print(f"Dataset label: {dataset_label}")
         
         # 在当前子图绘制误差曲线
-        create_error_curve(logs_dir, ax)
+        handles, labels = create_error_curve(logs_dir, ax)
+        
+        # 收集图例信息（只收集一次）
+        if i == 0:
+            all_handles = handles
+            all_labels = labels
         
         # 添加子图标注（a), (b), (c), (d)）
         add_panel_label(ax, index=i, style='paren')
@@ -353,8 +353,20 @@ def main():
         # 添加数据集名称作为子图标题（可选）
         # ax.set_title(dataset_label, fontsize=8)
     
+    # 在大图顶部添加统一的图例
+    fig.legend(all_handles, all_labels, 
+              loc='upper center', 
+              bbox_to_anchor=(0.5, 0.95), 
+              ncol=5,  # 水平排列5个图例项
+              fontsize=7, 
+              frameon=False,  # 不显示图例背景框
+              facecolor='none',  # 背景透明
+              edgecolor='none',  # 边框透明
+              framealpha=0.0)  # 完全透明
+    
     # 调整子图间距
     plt.tight_layout()
+    plt.subplots_adjust(top=0.85, hspace=0.3)  # 为顶部图例留出空间
     
     # 定义输出目录并导出图表
     output_dir = r"d:\desktop\code\conditional-flow-matching\runner\src\plots"

@@ -103,6 +103,7 @@ def set_paper_style(base_fontsize=10):
             "font.family": "sans-serif",
             # "font.sans-serif": ["SimSun", "Arial", "Helvetica", "Liberation Sans", "DejaVu Sans"],
             "font.sans-serif": ["Arial", "Helvetica", "Liberation Sans", "DejaVu Sans"],
+            # "font.sans-serif": ["Times New Roman", "Arial", "Helvetica", "Liberation Sans", "DejaVu Sans"],
             "font.size": base_fontsize,
             "axes.labelsize": base_fontsize,
             "axes.titlesize": base_fontsize,

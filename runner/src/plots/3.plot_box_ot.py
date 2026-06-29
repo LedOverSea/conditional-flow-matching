@@ -299,7 +299,7 @@ def create_boxplot(summary_df, ax):
     ax.set_ylabel('1-Wasserstein')
     
     # 添加网格
-    ax.grid(True, alpha=0.3)
+    # ax.grid(True, alpha=0.3)
     
     ax.tick_params(axis='x', rotation=30, labelsize=8)
     ax.tick_params(axis='y', labelsize=8)
